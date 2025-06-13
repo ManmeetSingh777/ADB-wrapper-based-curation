@@ -1,0 +1,276 @@
+Perfect. You’re pivoting exactly as a smart founder should:
+**“Let’s simplify and isolate the Perplexity Sonar testing layer first before building the full data stack.”**
+This will allow you to test whether Perplexity Sonar actually delivers meaningful output with real lat-long + system prompt without getting tangled in multi-layer verification or other backend pipelines.
+
+---
+
+# 🚀 **ULTRA-SPECIFIC EXECUTION DOC — STAGE 1 PERPLEXITY LAT-LONG WRAPPER**
+
+---
+
+## 🎯 **OBJECTIVE**
+
+Build a fully isolated test wrapper system where:
+
+* User enters:
+
+  * A custom system prompt.
+  * A list of billboard locations (lat-long) from existing inventory DB.
+* System injects the lat-long data into the system prompt.
+* Sends request to Perplexity Sonar API.
+* Displays raw Sonar output for review.
+* No downstream parsing, storage, verification, or multiple APIs involved.
+
+---
+
+## 🚩 SYSTEM CONSTRAINTS
+
+* **NO Google Places API**
+* **NO Database Writes**
+* **NO Geofence Extraction**
+* **NO Regex Parsing**
+* **NO Admin Review**
+* **NO PostGIS**
+
+**ONLY:**
+
+* Frontend input interface.
+* Backend API call wrapper.
+* Simple response viewer.
+
+---
+
+# 🏗️ TECH STACK (MINIMUM MVP BUILD)
+
+| Layer      | Technology                                                        |
+| ---------- | ----------------------------------------------------------------- |
+| Frontend   | React.js + Tailwind                                               |
+| Backend    | Python (FastAPI)                                                  |
+| LLM API    | Perplexity Sonar API only                                         |
+| Deployment | Localhost or simple cloud instance (Render, Vercel, Railway etc.) |
+
+---
+
+# ⚙ MODULES
+
+---
+
+## MODULE 1: FRONTEND INPUT UI
+
+### ✅ INPUT FIELDS:
+
+| Field Name    | Type                | Required? | Description                        |
+| ------------- | ------------------- | --------- | ---------------------------------- |
+| System Prompt | Multi-line TextArea | ✅         | The prompt template                |
+| Lat-Long Data | Multi-line TextArea | ✅         | Paste inventory hoarding locations |
+| Submit Button | Button              | ✅         | Triggers API call                  |
+
+---
+
+### ✅ LAT-LONG DATA INPUT FORMAT:
+
+Strict JSON array input:
+
+```json
+[
+  {"location_name": "Site A", "latitude": 28.6565, "longitude": 77.2300},
+  {"location_name": "Site B", "latitude": 28.6655, "longitude": 77.2060}
+]
+```
+
+* User will copy-paste this directly.
+* Keep it manually entered for now to avoid DB integrations.
+
+---
+
+## MODULE 2: BACKEND API (FastAPI)
+
+### ✅ ROUTES:
+
+#### `/submit-research` (POST)
+
+* Payload:
+
+```json
+{
+  "system_prompt": "...",
+  "inventory_locations": [
+    {"location_name": "Site A", "latitude": 28.6565, "longitude": 77.2300},
+    {"location_name": "Site B", "latitude": 28.6655, "longitude": 77.2060}
+  ]
+}
+```
+
+* Behavior:
+
+  1️⃣ Builds full prompt by injecting the inventory locations directly into the system prompt template.
+
+  2️⃣ Sends final string prompt to Perplexity Sonar API.
+
+  3️⃣ Returns full Perplexity response as raw text.
+
+---
+
+### ✅ SYSTEM PROMPT INJECTION FORMAT
+
+Backend string injection example:
+
+```python
+formatted_locations = "\n".join([
+  f"{loc['location_name']} at ({loc['latitude']}, {loc['longitude']})"
+  for loc in inventory_locations
+])
+
+final_prompt = f"{system_prompt}\n\nHere are the existing billboard locations:\n{formatted_locations}"
+```
+
+---
+
+## MODULE 3: PERPLEXITY SONAR API CALL
+
+### ✅ PARAMETERS:
+
+* Model: Sonar Large
+* Temperature: `0.0`
+* Max Tokens: 3000+
+* Only raw string prompt is sent.
+* No tool use or plugins activated.
+
+### ✅ SAMPLE CALL:
+
+```python
+import openai
+
+response = openai.ChatCompletion.create(
+  model="sonar-large-online",
+  messages=[{"role": "user", "content": final_prompt}],
+  temperature=0.0
+)
+```
+
+---
+
+## MODULE 4: FRONTEND OUTPUT VIEWER
+
+### ✅ DISPLAY:
+
+* Full Perplexity raw output displayed in:
+
+```html
+<div class="rounded border p-4 whitespace-pre-wrap">{llm_response}</div>
+```
+
+* No post-processing.
+* Full JSON/text preserved for operator review.
+
+---
+
+# 🧪 COMPLETE USER FLOW (STEP-BY-STEP)
+
+---
+
+### Step 1️⃣ — User opens frontend page
+
+### Step 2️⃣ — Inputs:
+
+* System Prompt template (textarea)
+* Raw JSON array of inventory hoardings with lat-longs (textarea)
+
+### Step 3️⃣ — User clicks "Submit"
+
+### Step 4️⃣ — Backend injects inventory into prompt
+
+* Adds lat-longs into system prompt before sending to Sonar.
+
+### Step 5️⃣ — Backend calls Perplexity Sonar
+
+* Uses static API key.
+* Submits full combined prompt.
+
+### Step 6️⃣ — Response returned raw.
+
+* No filtering.
+* Full output rendered to screen.
+
+### Step 7️⃣ — Operator reviews whether Sonar output is useful.
+
+---
+
+# ⚠ EXAMPLES OF TEST CASES
+
+---
+
+### ✅ Test Case 1 — Ideal valid input
+
+**Prompt:**
+
+```txt
+You are an outdoor advertising researcher for Delhi. Use the following billboard locations to generate hyper-specific audience recommendations and estimated reach per site:
+```
+
+**Inventory:**
+
+```json
+[
+  {"location_name": "Chandni Chowk", "latitude": 28.6565, "longitude": 77.2300},
+  {"location_name": "Sadar Bazaar", "latitude": 28.6655, "longitude": 77.2060}
+]
+```
+
+**Expected Result:**
+LLM returns properly formatted data for each provided location.
+
+---
+
+### ✅ Test Case 2 — Incomplete prompt
+
+**Prompt:**
+
+> Missing clear task instructions.
+
+**Behavior:**
+LLM likely returns poor output → operator sees failure mode.
+
+---
+
+### ✅ Test Case 3 — Malformed inventory data
+
+**Inventory:**
+Incorrect JSON format.
+
+**Behavior:**
+Frontend validator blocks submission.
+
+---
+
+# 🚧 FUTURE EXTENSIONS (Not Included in Current Build)
+
+* Inventory DB Integration
+* System Prompt Versioning Table
+* Geofence Extraction
+* Verification Layers
+* Parsing & Structured DB Storage
+
+---
+
+# ⏱ ESTIMATED DEV TIME FOR THIS LIGHTWEIGHT BUILD
+
+| Task                   | Duration |
+| ---------------------- | -------- |
+| Frontend Form Build    | 1 day    |
+| Backend FastAPI Build  | 1 day    |
+| Prompt Injection Logic | 0.5 day  |
+| Perplexity API Wiring  | 0.5 day  |
+| Output Viewer          | 0.5 day  |
+| Testing                | 1 day    |
+
+**MVP Delivery: 4 - 5 full working days**
+
+---
+
+# 🚀 THE SYSTEM IS FULLY DEFINED.
+
+**NO ROOM FOR VAGUENESS. THIS CAN BE HANDED TO CURSOR IMMEDIATELY.**
+
+---
+
