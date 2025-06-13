@@ -1,7 +1,3 @@
-Read file: README.md
-Here’s a much more structured and detailed README template for your project, with clear file-by-file explanations, setup, and contribution instructions. You can copy and replace your current README.md with this improved version:
-
----
 
 # Billboard Intelligence System – Perplexity Sonar Wrapper
 
